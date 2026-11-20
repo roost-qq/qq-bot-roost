@@ -8,11 +8,11 @@
 
 <img src="https://img.shields.io/badge/Node.js-22.13%2B-339933?logo=node.js&logoColor=white" alt="Node.js 22.13+">
 <img src="https://img.shields.io/badge/dependencies-0-brightgreen" alt="零依赖">
-<img src="https://img.shields.io/badge/tests-1307%20passed-brightgreen" alt="测试 1307 项">
+<img src="https://img.shields.io/badge/tests-1313%20passed-brightgreen" alt="测试 1313 项">
 <img src="https://img.shields.io/badge/plugins-JS%20%7C%20Python%20%7C%20Go%20%7C%20any-blue" alt="多语言插件">
-<img src="https://img.shields.io/badge/version-1.1.6-blueviolet" alt="版本 1.1.6">
+<img src="https://img.shields.io/badge/version-1.1.7-blueviolet" alt="版本 1.1.7">
 <img src="https://img.shields.io/badge/license-AGPL--3.0--only-blue" alt="AGPL-3.0-only">
-<a href="https://github.com/tdcq9594/qq-bot-roost/actions"><img src="https://img.shields.io/github/actions/workflow/status/tdcq9594/qq-bot-roost/ci.yml?branch=master" alt="CI"></a>
+<a href="https://github.com/roost-qq/qq-bot-roost/actions"><img src="https://img.shields.io/github/actions/workflow/status/roost-qq/qq-bot-roost/ci.yml?branch=master" alt="CI"></a>
 
 [快速开始](#3-分钟跑起来) ｜ [写插件](docs/插件开发规范.md) ｜ [外部插件协议](docs/插件协议.md) ｜ [配置参考](docs/配置参考.md) ｜ [常见问题](docs/常见问题.md) ｜ [贡献](CONTRIBUTING.md)
 
@@ -106,7 +106,7 @@
 
 **插件系统**
 
-- **插件不在本仓库**：全部放在 [qq-bot-roost-plugins](https://github.com/tdcq9594/qq-bot-roost-plugins)，
+- **插件不在本仓库**：全部放在 [qq-bot-roost-plugins](https://github.com/roost-qq/qq-bot-roost-plugins)，
   面板「插件 → 市场」一键安装，**有新版会自动提示、一键更新**
 - **下载源可换**：国内直连 GitHub 经常超时，面板里能选 GitHub 官方 / Gitee 镜像
   （作者维护，内容逐字节相同）/ 自建前缀，**带一键测速**；`auto` 模式直连失败会
@@ -221,7 +221,7 @@ INFO  [webui] 可视化面板: http://127.0.0.1:15207/
 想在服务器 / NAS 上跑，用容器更省事：
 
 ```bash
-git clone https://github.com/tdcq9594/qq-bot-roost.git
+git clone https://github.com/roost-qq/qq-bot-roost.git
 cd qq-bot-roost
 cp config/bot.example.json config/bot.json    # 首次，然后填 AppID / AppSecret
 docker compose up -d
@@ -497,8 +497,8 @@ openid 完全不同。共享 `roles.json` 等于所有权限记录全部对不�
 
 | 仓库 | 说明 |
 |------|------|
-| [qq-bot-roost-plugins](https://github.com/tdcq9594/qq-bot-roost-plugins) | 插件市场源，面板「插件 → 市场」从这里装 |
-| [dsh-roost](https://github.com/tdcq9594/dsh-roost) | DSH 插件：让 AI 通过本框架住进 QQ（走官方接口，不 hook 客户端） |
+| [qq-bot-roost-plugins](https://github.com/roost-qq/qq-bot-roost-plugins) | 插件市场源，面板「插件 → 市场」从这里装 |
+| [dsh-roost](https://github.com/roost-qq/dsh-roost) | DSH 插件：让 AI 通过本框架住进 QQ（走官方接口，不 hook 客户端） |
 
 ---
 
@@ -615,7 +615,7 @@ mock 模式下：直接输入文本 = 模拟一条群 @ 消息；`!as <openid>` 
 
 ## 许可
 
-本项目采用 **GNU Affero General Public License v3.0 only（AGPL-3.0-only）**，是 OSI 认证的开源许可证。完整条款见 [LICENSE](LICENSE)。版权持有人另有明确授权的场景，见 [LICENSE-EXCEPTIONS.md](LICENSE-EXCEPTIONS.md)；未列出的场景仍按 AGPL 处理。
+本项目采用 **GNU Affero General Public License v3.0 only（AGPL-3.0-only）**，是 OSI 认证的开源许可证。完整条款见 [LICENSE](LICENSE)。
 
 | 场景 | 允许？ |
 |------|--------|
@@ -623,7 +623,7 @@ mock 模式下：直接输入文本 = 模拟一条群 @ 消息；`!as <openid>` 
 | 商业使用、收费分发、集成进商业产品 | ✅ 允许，但受下列条件约束 |
 | 分发源码或二进制给他人 | ✅ 必须同样以 AGPL-3.0-only 授权、保留声明并提供完整对应源码 |
 | 修改后通过网络向用户提供服务 | ✅ 视为分发，须向使用者提供对应源码（AGPL 第 13 条） |
-| 改用更宽松许可、闭源再分发 | ❌ 不允许（除 [LICENSE-EXCEPTIONS.md](LICENSE-EXCEPTIONS.md) 明确列出的场景） |
+| 改用更宽松许可、闭源再分发 | ❌ 不允许 |
 
 两点要说明白：
 
