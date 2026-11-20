@@ -1664,7 +1664,7 @@ async function startWebServerInstance({
               username: String(b?.userName ?? '测试用户'),
             },
             timestamp: String(Date.now()),
-          });
+          }, 'mock');
           return json(res, 200, { ok: true });
         }
 
@@ -2235,7 +2235,7 @@ async function startWebServerInstance({
             author: { member_openid: String(body.userId ?? 'mock-user'), username: '测试用户' },
           };
           try {
-            await rt.dispatch(event, data);
+            await rt.dispatch(event, data, 'dev');
             return json(res, 200, { ok: true, event });
           } catch (e) {
             // 插件在处理里抛错不该让接口 500——调用方要能看到「消息收下了但处理失败」

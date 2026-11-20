@@ -48,7 +48,7 @@ import { SENSITIVE_KEY } from './runtime.js';
  * 单独用 `AUTHOR_COLS` 把它用 `json_extract` 拆成三列——一页 50 条每条
  * 几十 KB 的报文全都读上来太浪费。
  */
-const EVENT_COLS = 'seq, id, kind, chat_id, user_id, user_name, content, at, time_basis, msg_idx, quoted, trace, plugin, bot_id';
+const EVENT_COLS = 'seq, id, kind, chat_id, user_id, user_name, content, at, time_basis, msg_idx, quoted, trace, plugin, source, bot_id';
 
 /** 从 `payload.author` 里取的三个展示字段（昵称 / 群名片 / 头像） */
 const AUTHOR_COLS = `,
@@ -230,6 +230,12 @@ export class EventLedger {
       : `${this.botId}:${msg.chatId ?? ''}:${at}:${digestOf(msg)}`;
 
     const id = crypto.randomUUID();
+    /**
+     * 来源（v4）的兜底：显式给了就用，没给但署名了插件 → 一定是插件路径。
+     * 和 `outbound.js` 的 `sourceOf()` 同一口径（那边是给投递账本用的，
+     * 两层各存一份库、都得算）。两者都空就是空串 = 不知道，**不等于入站**。
+     */
+    const source = String(msg.source ?? '') || (msg.plugin ? 'plugin' : '');
     const payload = (() => {
       try {
         let s = JSON.stringify(cleanPayload(msg.raw));
@@ -251,8 +257,8 @@ export class EventLedger {
           `INSERT OR IGNORE INTO events
             (id, bot_id, kind, chat_id, msg_id, user_id, user_name, content,
              at, observed_at, time_basis, dedupe,
-             msg_idx, ref_msg_idx, union_openid, quoted, payload, trace, plugin)
-           VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)`,
+             msg_idx, ref_msg_idx, union_openid, quoted, payload, trace, plugin, source)
+           VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)`,
         )
         .run(
           id,
@@ -279,6 +285,13 @@ export class EventLedger {
            * 多插件合并时是逗号分隔（`echo,ai-chat`）。
            */
           String(msg.plugin ?? ''),
+          /**
+           * 从哪个口子进来 / 出去（v4）。见 `events-schema.js` 的取值口径。
+           * 入站由 `bot.dispatch()` 传（gateway / webhook / mock），
+           * 出站由 `outbound.send({source})` 传（plugin / host / onebot / api）。
+           * 老调用方不给就写空串——**空串表示「不知道」，不是「入站」**。
+           */
+          source,
         );
       // changes === 0 说明撞了 dedupe 唯一约束 = 官方重推的同一条消息
       if (!r?.changes) {
@@ -422,7 +435,7 @@ export class EventLedger {
       .get(this.botId, String(chatId), Number(anchorSeq) || 0);
     if (!anchor) return [];
 
-    const cols = `seq, id, kind, chat_id, msg_id, user_id, user_name, content, at, time_basis, msg_idx, ref_msg_idx, quoted`;
+    const cols = `seq, id, kind, chat_id, msg_id, user_id, user_name, content, at, time_basis, msg_idx, ref_msg_idx, quoted, source`;
     const prev = this.db
       .prepare(
         /**
@@ -461,6 +474,8 @@ export class EventLedger {
       msgIdx: r.msg_idx,
       refMsgIdx: r.ref_msg_idx,
       quoted: r.quoted,
+      /** 邻文也带来源：AI 拿到上下文时能知道哪条是 OneBot/宿主发的 */
+      source: r.source ?? '',
       content: contentOf(r),
       role: r.hit ? 'hit' : 'neighbor',
     }));
@@ -980,6 +995,12 @@ export class EventLedger {
           content: String(r?.content ?? ''),
           plugin: String(r?.plugin ?? ''),
           /**
+           * 导入的行默认标 `import`：这些是从外部搬进来的历史，
+           * 不是「现在从网关收到的」。允许行里显式覆盖（比如从 OneBot
+           * 历史接口搬进来的，标 `onebot` 更准确）。
+           */
+          source: String(r?.source ?? 'import'),
+          /**
            * `append()` 只从 `raw.timestamp` 推 `at`（传 `at` 无效）。
            * 给 ISO 字符串，`resolveTime` 会解析成 `basis: 'message'`——
            * 正是「这条消息官方给了时间」的语义。
@@ -1051,7 +1072,7 @@ export class EventLedger {
       const args = [];
       if (chat) { where.push('chat_id = ?'); args.push(chat); }
       if (ts) { where.push('at < ?'); args.push(ts); }
-      const sql = `SELECT seq, id, kind, chat_id, msg_id, user_id, user_name, content, at, time_basis, plugin, bot_id
+      const sql = `SELECT seq, id, kind, chat_id, msg_id, user_id, user_name, content, at, time_basis, plugin, source, bot_id
                      FROM events ${where.length ? `WHERE ${where.join(' AND ')}` : ''}
                     ORDER BY seq ASC LIMIT ?`;
       return this.db.prepare(sql).all(...args, lim);
@@ -1114,6 +1135,15 @@ function mapRow(r) {
      * 别默认成 `''` 就当成"入站"——老库里的出站行也是空串。
      */
     plugin: r.plugin ?? '',
+    /**
+     * 从哪个口子进来 / 出去（v4）：gateway / webhook / plugin / host /
+     * onebot / api / mock / dev / import。
+     *
+     * 和 `plugin` 是**两个维度**：`plugin='' + source='onebot'` 是「OneBot
+     * 客户端发的」，`plugin='ai-chat' + source='plugin'` 是「ai-chat 插件发的」。
+     * 老行一律空串，表示「不知道」，不要拿来判断入站还是出站。
+     */
+    source: r.source ?? '',
     content: contentOf(r),
   };
 }

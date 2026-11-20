@@ -984,12 +984,12 @@ async function runMock(runtimes) {
         group_openid: gid,
         op_member_openid: inviter,
         timestamp: String(Date.now()),
-      });
+      }, 'mock');
     }
     if (t.startsWith('!delbot')) {
       const [, gid = fakeGroup] = t.split(/\s+/);
       console.log(`[模拟] ${cur.id} 被移出群 ${gid}`);
-      return cur.dispatch('GROUP_DEL_ROBOT', { group_openid: gid, timestamp: String(Date.now()) });
+      return cur.dispatch('GROUP_DEL_ROBOT', { group_openid: gid, timestamp: String(Date.now()) }, 'mock');
     }
 
     return cur.dispatch('GROUP_AT_MESSAGE_CREATE', {
@@ -998,7 +998,7 @@ async function runMock(runtimes) {
       group_openid: fakeGroup,
       author: { member_openid: currentUser() },
       timestamp: String(Date.now()),
-    });
+    }, 'mock');
   };
 
   const send = (line) => {
