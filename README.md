@@ -511,7 +511,7 @@ npm run test:all      # 全量约 1542 项：自检 + 扫码 + 依赖 + e2e（�
 npm run check:secrets # 扫硬编码凭据（CI 也跑这个，提交前建议过一遍）
 node src/main.js --mock          # 不连 QQ，命令行发假消息调插件
 node src/main.js --mock --serve  # 只开面板，调界面
-node src/main.js --check         # 只验证凭证和网关
+node src/main.js --check         # 只体检：凭证 + 网关 + intents / 面板暴露面 / 插件目录，不启动机器人
 ```
 
 > **真凭据不要写进代码**，放 `config/bot.json`（已在 .gitignore 里）。

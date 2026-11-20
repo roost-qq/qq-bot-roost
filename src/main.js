@@ -17,6 +17,7 @@ import { createLogger, setLevel, getLevel, attachLogFile, flushLogs } from './lo
 import { configureMirror } from './mirror.js';
 import { configureProxy } from './proxy.js';
 import { BotRuntime, pluginAllowedIn } from './bot.js';
+import { runCheckMode } from './check.js';
 import { toggleGroupPlugin, resetGroupPlugins, describeGroupScope } from './plugin/groupscope.js';
 import { runtime, sanitizePayload } from './runtime.js';
 import { LEVEL, NO_PERM, levelName, parseLevel, parseScope, scopeOf } from './roles.js';
@@ -70,7 +71,7 @@ qq-bot-roost（栖 Roost）· QQ 机器人框架
 用法:
   node src/main.js              连接 QQ，正常跑（会自动打开面板）
   node src/main.js --no-open    同上，但不自动开浏览器
-  node src/main.js --check      只验证 AppID/AppSecret 和网关，不常驻
+  node src/main.js --check      只体检：凭证 / 网关 / intents / 面板暴露面，不启动机器人
   node src/main.js --mock       不连 QQ，用本地假消息开发插件
   node src/main.js --mock --serve   只启动可视化面板，不读标准输入（调界面用）
   node src/main.js --paused     启动时先全局暂停，确认配置无误后在面板放开
@@ -1136,6 +1137,30 @@ async function main() {
     await createBotConfig(id, { name: '默认机器人' });
     log.info(`已创建默认机器人配置: ${rel(botPaths(id).config)}`);
     botCfgs = [await loadBotConfig(id)];
+  }
+
+  /**
+   * `--check`：**只体检，不常驻**。
+   *
+   * 位置很关键，必须在这三件事之前：
+   *   · 建运行时（`rt.init()` 会起 OneBot / 宿主协议端口、加载插件、建 SQLite）；
+   *   · Webhook 服务（会占端口）；
+   *   · 配置快照（会写盘）。
+   * 以前 `CHECK_ONLY` 声明完就没再被引用过，这个命令等于「照常启动」——
+   * 用户以为只是检查，实际真上线了一只鸟。
+   */
+  if (CHECK_ONLY) {
+    const code = await runCheckMode({
+      bots: botCfgs.filter((c) => c.enabled !== false),
+      globalCfg,
+      mock: MOCK,
+    });
+    try {
+      await flushLogs();
+    } catch {
+      /* 日志没刷出去不影响退出码 */
+    }
+    process.exit(code);
   }
 
   /**
