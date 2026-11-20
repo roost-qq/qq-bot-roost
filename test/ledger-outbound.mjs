@@ -508,4 +508,3 @@ test('降级：40034128（被动超限）仍然改发主动消息', async (t) =>
   assert.equal(r.degraded, true);
   assert.equal(r.id, 'active-1');
 });
-
