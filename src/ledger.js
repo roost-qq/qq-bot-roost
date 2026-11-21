@@ -964,7 +964,9 @@ export class EventLedger {
    *   · 有 `msgId` → dedupe = `botId:msgId`，和原来那条一模一样；
    *   · 没有 `msgId` → dedupe 里带 `at`，同一份文件导两次也只会进一次。
    *
-   * @param {Array<object>} rows 每行 `{at, kind, chatId, msgId, userId, userName, content, plugin}`
+   * @param {Array<object>} rows 每行 `{at, kind, chatId, msgId, userId, userName, content, plugin, source}`
+   *   `source` 缺省落 `import`（这条是外部搬进来的），给了就按给的记——导出文件里带的
+   *   `gateway` / `onebot` / `plugin` 原样还原，别把来源洗成清一色的 `import`。
    * @returns {{added:number, skipped:number, bad:number, error?:string}}
    */
   importRows(rows, { max = 5000 } = {}) {
@@ -1162,6 +1164,34 @@ function authorFieldsOf(r) {
     card: String(r?.author_card ?? ''),
     /** QQ 昵称 */
     nickname: String(r?.author_nickname ?? ''),
+  };
+}
+
+/**
+ * 把一行事件（库里的 snake_case）转成**导入用的 camelCase**。
+ *
+ * 导出 JSONL 与 `importRows()` 必须共用这一份映射。以前导出那边自己手写字段列表，
+ * 加 `source` 时漏了——而 JSONL 恰恰是「给导回用」的格式，导一轮回来来源全变成
+ * `import`，等于备份自己丢了信息。放在模块级是为了能直接单测（给一行库记录，
+ * 断言导出的对象），不用起面板。
+ *
+ * @param {object} r `exportRows()` 返回的行
+ */
+export function toImportRow(r) {
+  return {
+    at: Number(r?.at),
+    kind: String(r?.kind ?? ''),
+    chatId: String(r?.chat_id ?? ''),
+    msgId: String(r?.msg_id ?? ''),
+    userId: String(r?.user_id ?? ''),
+    userName: String(r?.user_name ?? ''),
+    content: String(r?.content ?? ''),
+    plugin: String(r?.plugin ?? ''),
+    /**
+     * 来源必须原样带出去。`importRows()` 只在**缺这个字段**时才落 `import`，
+     * 所以「网关收的」导回去还是 `gateway`，「OneBot 客户端发的」还是 `onebot`。
+     */
+    source: String(r?.source ?? ''),
   };
 }
 

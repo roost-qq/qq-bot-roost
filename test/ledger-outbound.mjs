@@ -31,7 +31,7 @@ import os from 'node:os';
 import path from 'node:path';
 
 import { Outbound, digestTextOf } from '../src/outbound.js';
-import { createLedger } from '../src/ledger.js';
+import { createLedger, toImportRow } from '../src/ledger.js';
 import { buildMessage } from '../src/message.js';
 import { DELIVERY_STATE } from '../src/delivery.js';
 
@@ -507,4 +507,76 @@ test('降级：40034128（被动超限）仍然改发主动消息', async (t) =>
   assert.equal(sends, 2, '这是唯一值得降级的错误');
   assert.equal(r.degraded, true);
   assert.equal(r.id, 'active-1');
+});
+
+/**
+ * 导出 / 导入必须共用 `toImportRow()`。
+ *
+ * 原来的导出在 `server.js` 里逐字段手写，加 `source` 时漏了 —— 而 JSONL 正是
+ * 「给导回用」的格式，导一轮回来所有 OneBot / 插件消息都变成 `import`。
+ * 这两条锁住：字段映射本身，以及「写进去 → 导出 → 导入」整条路。
+ */
+test('toImportRow：库里 snake_case → 导入用 camelCase，多余字段丢掉', () => {
+  const row = toImportRow({
+    at: 1700000000000,
+    kind: 'group',
+    chat_id: 'G1',
+    msg_id: 'm1',
+    user_id: 'U1',
+    user_name: '甲',
+    content: 'hi',
+    plugin: 'ai-chat',
+    source: 'onebot',
+    /** 下面这些不在导入形状里，不能让它们漏进去（导回时会被当成未知字段） */
+    seq: 9,
+    bot_id: 'main',
+    dedupe: 'main:m1',
+  });
+  assert.deepEqual(row, {
+    at: 1700000000000,
+    kind: 'group',
+    chatId: 'G1',
+    msgId: 'm1',
+    userId: 'U1',
+    userName: '甲',
+    content: 'hi',
+    plugin: 'ai-chat',
+    source: 'onebot',
+  });
+});
+
+test('导出再导入：source 原样还原，不会被洗成 import', async (t) => {
+  const src = rig(t);
+  const now = Date.now();
+  const add = (id, extra) =>
+    src.ledger.append({
+      id,
+      kind: 'group',
+      chatId: 'G1',
+      content: id,
+      raw: { timestamp: now },
+      ...extra,
+    });
+  add('网关来的', { userId: 'U1', userName: '甲', source: 'gateway' });
+  add('OneBot 发的', { source: 'onebot' });
+  add('插件发的', { plugin: 'ai-chat', source: 'plugin' });
+
+  /** 和 /api/ledger/export?format=jsonl 完全同一条路 */
+  const rows = src.ledger.exportRows({ chatId: 'G1' }).map(toImportRow);
+  assert.equal(rows.length, 3);
+  assert.equal(rows.find((r) => r.content === 'OneBot 发的')?.source, 'onebot', '导出的行必须带来源');
+
+  const dst = rig(t);
+  const r = dst.ledger.importRows(rows);
+  assert.equal(r.added, 3, '三条都是一次导入');
+  assert.equal(r.bad, 0);
+
+  const back = Object.fromEntries(
+    dst.ledger
+      .recent({ chatId: 'G1', limit: 10 })
+      .map((x) => [x.content, { source: x.source, plugin: x.plugin }]),
+  );
+  assert.deepEqual(back['网关来的'], { source: 'gateway', plugin: '' });
+  assert.deepEqual(back['OneBot 发的'], { source: 'onebot', plugin: '' }, '不能被洗成 import');
+  assert.deepEqual(back['插件发的'], { source: 'plugin', plugin: 'ai-chat' }, 'plugin 列也要跟着回来');
 });

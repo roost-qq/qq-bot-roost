@@ -33,6 +33,7 @@ import { listInstancesAll, clearInstance, releaseInstance } from '../instance.js
 import { SMTP_DEFAULTS } from '../mail/defaults.js';
 import { extractAddress } from '../mail/smtp.js';
 import { userFacingSendError } from '../outbound.js';
+import { toImportRow } from '../ledger.js';
 import { runRoute } from '../plugin/routes.js';
 import { toggleGroupPlugin } from '../plugin/groupscope.js';
 import { suspendPluginWatch } from '../services/plugin-watch.js';
@@ -3621,18 +3622,14 @@ async function startWebServerInstance({
            *     再解析回来要写一个完整的 CSV 解析器，而 JSONL 一行一条、不需要转义。
            */
           if (String(url.searchParams.get('format') || 'csv').toLowerCase() === 'jsonl') {
-            const lines = rows.map((r) =>
-              JSON.stringify({
-                at: Number(r.at),
-                kind: String(r.kind ?? ''),
-                chatId: String(r.chat_id ?? ''),
-                msgId: String(r.msg_id ?? ''),
-                userId: String(r.user_id ?? ''),
-                userName: String(r.user_name ?? ''),
-                content: String(r.content ?? ''),
-                plugin: String(r.plugin ?? ''),
-              }),
-            );
+            /**
+             * 字段映射走 `toImportRow()`，**不在这里手写**。
+             *
+             * 以前这里是逐字段敲的，加 `source` 时漏了：导出的文件再导回去，
+             * OneBot / 插件发的消息全变成 `import`。而 JSONL 本来就是「给导回用」
+             * 的格式，两个方向必须共用同一份映射，不然迟早再漏一次。
+             */
+            const lines = rows.map((r) => JSON.stringify(toImportRow(r)));
             res.writeHead(200, {
               'Content-Type': 'application/x-ndjson; charset=utf-8',
               'Content-Disposition': `attachment; filename="roost-ledger-${rt.id}-${Date.now()}.jsonl"`,
@@ -3645,7 +3642,7 @@ async function startWebServerInstance({
             return /[",\n]/.test(t) ? `"${t.replace(/"/g, '""')}"` : t;
           };
           const lines = [
-            'seq,时间,会话,类型,发送者,插件,正文',
+            'seq,时间,会话,类型,发送者,插件,来源,正文',
             ...rows.map((r) =>
               [
                 r.seq,
@@ -3654,6 +3651,12 @@ async function startWebServerInstance({
                 r.kind,
                 r.user_name,
                 r.plugin,
+                /**
+                 * 与面板「投递」页的来源列同一个口径（`gateway` / `onebot` / …）。
+                 * 这里不翻译成中文：CSV 里 `kind` / `chat_id` 本来就是原始值，
+                 * 翻译表只该有一份（前端 SOURCE_LABEL），后端再写一份迟早漂移。
+                 */
+                r.source,
                 r.content,
               ]
                 .map(q)
