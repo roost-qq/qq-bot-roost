@@ -580,3 +580,35 @@ test('导出再导入：source 原样还原，不会被洗成 import', async (t)
   assert.deepEqual(back['OneBot 发的'], { source: 'onebot', plugin: '' }, '不能被洗成 import');
   assert.deepEqual(back['插件发的'], { source: 'plugin', plugin: 'ai-chat' }, 'plugin 列也要跟着回来');
 });
+
+/**
+ * `history()` 与 `byUser()` 以前各自手写了一份列列表，加 `source` 时没跟着改——
+ * `mapRow()` 里 `r.source ?? ''` 会把它们统一读成空串，看起来「正常」，其实恒为空。
+ * 这两条查询一个给 OneBot 回放历史、一个给面板「身份」页，都必须带真实来源。
+ */
+test('history / byUser 也要带 source（不能因为手写列列表漏掉）', async (t) => {
+  const { ledger } = rig(t);
+  const now = Date.now();
+  ledger.append({
+    id: 'h1', kind: 'group', chatId: 'G1', userId: 'U1', userName: '甲',
+    content: '网关来的', raw: { timestamp: now }, source: 'gateway',
+  });
+  ledger.append({
+    id: 'h2', kind: 'group', chatId: 'G1', userId: 'U1',
+    content: '插件发的', raw: { timestamp: now }, plugin: 'ai-chat', source: 'plugin',
+  });
+
+  const h = ledger.history({ chatId: 'G1', limit: 10 });
+  assert.deepEqual(
+    h.map((x) => [x.content, x.source]),
+    [['网关来的', 'gateway'], ['插件发的', 'plugin']],
+    'history 要给 OneBot 回放带上来源',
+  );
+
+  const u = ledger.byUser({ userId: 'U1', limit: 10 });
+  assert.deepEqual(
+    u.map((x) => [x.content, x.source]),
+    [['网关来的', 'gateway'], ['插件发的', 'plugin']],
+    'byUser 不能恒为空串',
+  );
+});

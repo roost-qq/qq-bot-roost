@@ -695,14 +695,14 @@ export class EventLedger {
     const rows = beforeSeq
       ? this.db
           .prepare(
-            `SELECT seq, id, kind, chat_id, user_id, user_name, content, at, msg_idx, quoted, payload
+            `SELECT ${EVENT_COLS}, payload
                FROM events WHERE bot_id = ? AND chat_id = ? AND seq < ? AND kind != 'notice'
               ORDER BY seq DESC LIMIT ?`,
           )
           .all(this.botId, String(chatId), Number(beforeSeq), lim)
       : this.db
           .prepare(
-            `SELECT seq, id, kind, chat_id, user_id, user_name, content, at, msg_idx, quoted, payload
+            `SELECT ${EVENT_COLS}, payload
                FROM events WHERE bot_id = ? AND chat_id = ? AND kind != 'notice'
               ORDER BY seq DESC LIMIT ?`,
           )
@@ -738,7 +738,7 @@ export class EventLedger {
     const lim = Math.min(Math.max(Number(limit) || 20, 1), 200);
     const rows = this.db
       .prepare(
-        `SELECT seq, id, kind, chat_id, user_id, user_name, content, at, time_basis, msg_idx, quoted, trace, plugin, bot_id
+        `SELECT ${EVENT_COLS}
            FROM events WHERE bot_id = ? AND user_id = ? AND kind != 'notice'
           ORDER BY at DESC, seq DESC LIMIT ?`,
       )
