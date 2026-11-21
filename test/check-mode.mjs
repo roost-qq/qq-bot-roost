@@ -74,6 +74,33 @@ test('runCheckMode：只看配置，不启动任何东西，网关可达即通�
   assert.ok(lines.some((l) => l.includes('没有启动任何机器人')), '结尾要明确说没启动');
 });
 
+test('runCheckMode：插件目录不存在 → warn（不是 error），退出码仍为 0', async () => {
+  const { print, text } = recorder();
+  const { DIRS } = await import('../src/paths.js');
+  const before = DIRS.plugins;
+  /**
+   * `plugins/` 在 `.gitignore` 里，**全新检出就没有这个目录**（CI 就是这样）。
+   * 以前 doctor 把「目录不存在」和「目录不可写」当成同一件事报 error，于是刚
+   * clone 完跑 `--check` 会被告知「装插件会失败」并退出 1 —— 一个根本不存在的故障。
+   * 这条测试就是那次 CI 红的事故快照。
+   */
+  DIRS.plugins = path.join(os.tmpdir(), `roost-not-exist-${process.pid}`, 'plugins');
+  try {
+    const code = await runCheckMode({
+      bots: [goodCfg],
+      globalCfg: {},
+      probe: false,
+      print,
+      makeApi: () => ({ tokens: {}, api: {} }),
+    });
+    assert.equal(code, 0, '目录还没建不是错误——首次启动会自动创建');
+    assert.match(text(), /插件目录还没建/, '要说清是「还没建」而不是「不可写」');
+    assert.doesNotMatch(text(), /插件目录不可写/);
+  } finally {
+    DIRS.plugins = before;
+  }
+});
+
 test('runCheckMode：网关不可达 → 退出码 1，并给出下一步', async () => {
   const { print, text } = recorder();
   const code = await runCheckMode({
