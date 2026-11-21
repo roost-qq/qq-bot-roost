@@ -60,7 +60,15 @@ test('multipart：连接没建起来的重试仍走 FormData，不降级成 JSON
   const [first, second] = calls.map((c) => c.init);
   assert.ok(first.body instanceof FormData, '首次是 FormData');
   assert.ok(second.body instanceof FormData, '重试也必须是 FormData（JSON 化会带出一个 Buffer 对象，平台必 400）');
-  assert.equal(second.headers['Content-Type'], undefined, 'multipart 不能手写 Content-Type（boundary 由 fetch 生成）');
+  /**
+   * **大小写不敏感**地断言没有手写 Content-Type。
+   * 只查 `headers['Content-Type']` 的话，实现哪天改成小写键，这条会继续「通过」——
+   * 而多手写一个 Content-Type 会让 fetch 的 boundary 失效，平台直接 400。
+   */
+  assert.ok(
+    !Object.keys(second.headers ?? {}).some((k) => k.toLowerCase() === 'content-type'),
+    'multipart 不能手写 Content-Type（boundary 由 fetch 生成）',
+  );
   assert.equal(second.body.get('content'), 'hi');
   assert.ok(second.body.get('file_image') instanceof Blob, '文件字段还在');
 });

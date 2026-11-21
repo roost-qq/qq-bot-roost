@@ -137,7 +137,14 @@ test('CLI：--check --mock 走体检路径、退出 0，不进入启动流程', 
           ROOST_NO_SYSTEM_PROXY: '1',
         },
       },
-      (err, out, errOut) => resolve({ code: err?.code ?? 0, stdout: `${out}\n${errOut}` }),
+      (err, out, errOut) => {
+        /**
+         * `err.code` 在「被信号杀掉 / 超时」时是 `null`，`?? 0` 会把它当成**成功**。
+         * 这里把「有 err 但 code 不是数字」一律算 1，避免超时被当成通过。
+         */
+        const code = err ? (typeof err.code === 'number' ? err.code : 1) : 0;
+        resolve({ code, stdout: `${out}\n${errOut}` });
+      },
     );
   });
 
