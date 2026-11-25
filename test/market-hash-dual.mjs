@@ -17,7 +17,7 @@ import path from 'node:path';
 import { pathToFileURL } from 'node:url';
 
 const { hashDir, HASH_ALGO } = await import('../src/hashdir.js');
-const { entryHashes, verifyPluginDir } = await import('../src/plugin/market.js');
+const { entryHashes, verifyPluginDir, mergeWithInstalled } = await import('../src/plugin/market.js');
 
 /** 插件仓兄弟检出存在时才跑跨仓逐字节断言（CI 里两边都会 checkout） */
 const pluginHashPath = path.resolve(
@@ -157,4 +157,15 @@ test('安装 / 更新入口都把开关传进校验，老配置不会意外关�
         `${rel} 的 ${m[0]} 没传 verifyHash`);
     }
   }
+});
+
+test('面板市场列表不列 DSH 扩展（共用索引，但装不了就不该显示）', () => {
+  const entries = [
+    { id: 'echo', version: '1.0.0', kind: undefined },
+    { id: 'bili', version: '0.11.11', kind: 'dsh-extension', runtime: 'mcp' },
+    { id: 'imagegen', version: '0.2.0', kind: 'dsh-extension', runtime: 'mcp' },
+  ];
+  const merged = mergeWithInstalled(entries, new Set(['echo', 'bili']));
+  assert.deepEqual(merged.map((p) => p.id), ['echo']);
+  assert.equal(merged[0].installed, true);
 });

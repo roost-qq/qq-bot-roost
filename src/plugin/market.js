@@ -630,14 +630,22 @@ export async function installPlugin({
 
 /**
  * 把市场索引和本地已装插件对上，给面板用。
+ *
+ * DSH 扩展（`kind: dsh-extension`）与框架插件共用同一份 index.json，但装的位置、
+ * 安装器、运行形态都不同——框架面板列出来只会让用户点了安装再报错。这里就把
+ * 扩展从面板列表里滤掉（执行层 `installPlugin` 的守卫仍在，两道都要有）。
+ * `detectUpdates` 也跳过扩展，所以分类计数、更新提示、卡片列表口径一致。
+ *
  * @param {object[]} indexPlugins
  * @param {Set<string>} installedIds
  */
 export function mergeWithInstalled(indexPlugins, installedIds) {
-  return indexPlugins.map((p) => ({
-    ...p,
-    installed: installedIds.has(p.id),
-  }));
+  return indexPlugins
+    .filter((p) => !isExtensionEntry(p))
+    .map((p) => ({
+      ...p,
+      installed: installedIds.has(p.id),
+    }));
 }
 
 /* ------------------------------------------------------------------ */
